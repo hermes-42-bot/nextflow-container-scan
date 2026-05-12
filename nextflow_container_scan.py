@@ -21,23 +21,32 @@ from pathlib import Path
 
 def clone_repo(url: str, ref: str, dest: Path, verbose: bool = False) -> None:
     """Clone a repo (with submodules) and checkout *ref*."""
-    kwargs = {} if verbose else {"stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL}
-    subprocess.run(["git", "clone", "--recursive", url, str(dest)], check=True, **kwargs)
+    out = None if verbose else subprocess.DEVNULL
+    err = None if verbose else subprocess.DEVNULL
+    subprocess.run(
+        ["git", "clone", "--recursive", url, str(dest)],
+        check=True,
+        stdout=out,
+        stderr=err,
+    )
     if ref != "HEAD":
         subprocess.run(
             ["git", "-C", str(dest), "fetch", "--depth=1", "origin", ref],
             check=False,
-            **kwargs
+            stdout=out,
+            stderr=err,
         )
         subprocess.run(
             ["git", "-C", str(dest), "checkout", ref],
             check=True,
-            **kwargs
+            stdout=out,
+            stderr=err,
         )
     subprocess.run(
         ["git", "-C", str(dest), "submodule", "update", "--init", "--recursive"],
         check=True,
-        **kwargs
+        stdout=out,
+        stderr=err,
     )
 
 
