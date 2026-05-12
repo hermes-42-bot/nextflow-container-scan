@@ -25,6 +25,12 @@ python3 nextflow_container_scan.py <repo-url> --include-http
 # full JSON output with file locations and directive text
 python3 nextflow_container_scan.py <repo-url> --full-json
 
+# use a different default registry for unqualified image names
+python3 nextflow_container_scan.py <repo-url> --registry my-registry.io
+
+# disable registry prefixing entirely
+python3 nextflow_container_scan.py <repo-url> --registry ""
+
 # specify a branch / tag / SHA
 python3 nextflow_container_scan.py <repo-url> --ref dev
 
@@ -32,6 +38,26 @@ python3 nextflow_container_scan.py <repo-url> --ref dev
 python3 nextflow_container_scan.py <repo-url> -o images.txt
 python3 nextflow_container_scan.py <repo-url> --full-json -o results.json
 ```
+
+## Default registry normalization
+
+By default, unqualified image names (e.g. `ubuntu:latest`, `library/busybox`)
+are prefixed with `quay.io/`. This helps compare images across pipelines that
+mix qualified (`docker.io/...`) and unqualified references.
+
+Docker's algorithm is used to detect whether an image already carries a
+registry prefix:
+
+* If the first slash-delimited component **contains a dot (.)** → treated as a
+  registry, e.g. `docker.io/library/ubuntu` → no change.
+* If it **contains a colon (:)** → treated as a registry, e.g.
+  `localhost:5000/image` → no change.
+* If it **equals `localhost`** → treated as a registry, e.g. `localhost/image`
+  → no change.
+* Otherwise, the image is unqualified and the default registry is prepended.
+
+Override the default with `--registry <host>` or disable it entirely with
+`--registry ""`.
 
 ## What is detected
 
@@ -45,8 +71,8 @@ container "${ workflow.containerEngine in ['singularity', 'apptainer'] ?
     'docker.io/repo/image:tag' }"
 ```
 
-By default, any reference starting with `http://` or `https://` is excluded.
-Use `--include-http` to keep them.
+Each finding lists the file, line range, full directive text, and extracted
+image candidate(s).
 
 ## Limitations
 

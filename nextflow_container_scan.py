@@ -215,6 +215,20 @@ def _unique_images(findings: list[dict]) -> list[str]:
     return sorted(seen)
 
 
+def _add_registry(image: str, registry: str) -> str:
+    """Prepend *registry* to images that do not already carry one.
+
+    Docker determines whether the first slash-delimited component is a registry
+    if it contains a dot (.) or a colon (:) or equals ``localhost``.
+    """
+    if "/" not in image:
+        return f"{registry}/{image}"
+    first = image.split("/", 1)[0]
+    if "." in first or ":" in first or first == "localhost":
+        return image
+    return f"{registry}/{image}"
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Scan a public Nextflow git repository for container directives."
@@ -232,6 +246,10 @@ def main() -> None:
         "--include-http", action="store_true",
         help="Include image references that start with 'http://' or 'https://' (excluded by default)"
     )
+    parser.add_argument(
+        "--registry", default="quay.io",
+        help="Default registry to prepend to unqualified image names (default: quay.io). Pass '' to disable."
+    )
     args = parser.parse_args()
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -241,8 +259,12 @@ def main() -> None:
         print("Scanning for container directives …", file=sys.stderr)
         results = find_all_containers(dest, exclude_http=not args.include_http)
 
+    registry = args.registry.strip()
+    if registry:
+        for f in results:
+            f["images"] = [_add_registry(img, registry) for img in f["images"]]
+
     if args.output and not args.full_json:
-        # Flat list output to file
         unique = _unique_images(results)
         Path(args.output).write_text("\n".join(unique) + ("\n" if unique else ""))
         print(f"Wrote {len(unique)} unique image(s) to {args.output}")
