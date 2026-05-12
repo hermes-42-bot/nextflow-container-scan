@@ -206,6 +206,15 @@ def find_all_containers(root: Path, exclude_http: bool = False) -> list[dict]:
     return findings
 
 
+def _unique_images(findings: list[dict]) -> list[str]:
+    """Return a deduplicated, sorted list of every image name found."""
+    seen = set()
+    for f in findings:
+        for img in f["images"]:
+            seen.add(img)
+    return sorted(seen)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Scan a public Nextflow git repository for container directives."
@@ -214,10 +223,14 @@ def main() -> None:
     parser.add_argument(
         "--ref", default="HEAD", help="Git ref to checkout (branch/tag/sha). Default: HEAD"
     )
-    parser.add_argument("-o", "--output", help="Write JSON results to this file")
+    parser.add_argument("-o", "--output", help="Write results to this file")
     parser.add_argument(
-        "--exclude-http", action="store_true",
-        help="Exclude image references that start with 'http://' or 'https://'"
+        "--full-json", action="store_true",
+        help="Output full JSON with file locations and directives (default: flat unique image list)"
+    )
+    parser.add_argument(
+        "--include-http", action="store_true",
+        help="Include image references that start with 'http://' or 'https://' (excluded by default)"
     )
     args = parser.parse_args()
 
@@ -226,7 +239,21 @@ def main() -> None:
         print(f"Cloning {args.repo} @ {args.ref} …", file=sys.stderr)
         clone_repo(args.repo, args.ref, dest)
         print("Scanning for container directives …", file=sys.stderr)
-        results = find_all_containers(dest, exclude_http=args.exclude_http)
+        results = find_all_containers(dest, exclude_http=not args.include_http)
+
+    if args.output and not args.full_json:
+        # Flat list output to file
+        unique = _unique_images(results)
+        Path(args.output).write_text("\n".join(unique) + ("\n" if unique else ""))
+        print(f"Wrote {len(unique)} unique image(s) to {args.output}")
+        return
+
+    if not args.full_json:
+        # Flat list to stdout
+        unique = _unique_images(results)
+        if unique:
+            print("\n".join(unique))
+        return
 
     payload = {
         "repo": args.repo,

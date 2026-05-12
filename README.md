@@ -6,7 +6,7 @@ files for `container` directives.
 
 It handles both simple one-liners and multi-line Groovy expressions (ternary,
 GString interpolations, etc.), so it works with pipelines that switch between
-Docker and Singularity URLs.
+Docker and Singularity images.
 
 ## Dependencies
 
@@ -16,24 +16,28 @@ Docker and Singularity URLs.
 ## Usage
 
 ```bash
-# basic scan (prints JSON to stdout)
+# default: unique image names, one per line (skips http:// / https:// URLs)
 python3 nextflow_container_scan.py <repo-url>
+
+# include Singularity / SIF URLs that start with https://
+python3 nextflow_container_scan.py <repo-url> --include-http
+
+# full JSON output with file locations and directive text
+python3 nextflow_container_scan.py <repo-url> --full-json
 
 # specify a branch / tag / SHA
 python3 nextflow_container_scan.py <repo-url> --ref dev
 
-# write results to file
-python3 nextflow_container_scan.py <repo-url> -o results.json
-
-# skip HTTP(S) image URLs (e.g. direct SIF/blob URLs)
-python3 nextflow_container_scan.py <repo-url> --exclude-http
+# write results to a file
+python3 nextflow_container_scan.py <repo-url> -o images.txt
+python3 nextflow_container_scan.py <repo-url> --full-json -o results.json
 ```
 
 ## What is detected
 
 * `container "..."` or `container '...'` inside Nextflow processes (`.nf`)
 * `process.container = "..."` in Nextflow config files (`.config`)
-* Multi-line conditional expressions:
+* Multi-line conditional expressions, e.g.:
 
 ```nextflow
 container "${ workflow.containerEngine in ['singularity', 'apptainer'] ?
@@ -41,8 +45,8 @@ container "${ workflow.containerEngine in ['singularity', 'apptainer'] ?
     'docker.io/repo/image:tag' }"
 ```
 
-Each finding lists the file, line range, full directive text, and extracted
-image candidate(s).
+By default, any reference starting with `http://` or `https://` is excluded.
+Use `--include-http` to keep them.
 
 ## Limitations
 
