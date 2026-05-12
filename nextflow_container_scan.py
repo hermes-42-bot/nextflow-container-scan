@@ -19,21 +19,25 @@ import tempfile
 from pathlib import Path
 
 
-def clone_repo(url: str, ref: str, dest: Path) -> None:
+def clone_repo(url: str, ref: str, dest: Path, verbose: bool = False) -> None:
     """Clone a repo (with submodules) and checkout *ref*."""
-    subprocess.run(["git", "clone", "--recursive", url, str(dest)], check=True)
+    kwargs = {} if verbose else {"stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL}
+    subprocess.run(["git", "clone", "--recursive", url, str(dest)], check=True, **kwargs)
     if ref != "HEAD":
         subprocess.run(
             ["git", "-C", str(dest), "fetch", "--depth=1", "origin", ref],
             check=False,
+            **kwargs
         )
         subprocess.run(
             ["git", "-C", str(dest), "checkout", ref],
             check=True,
+            **kwargs
         )
     subprocess.run(
         ["git", "-C", str(dest), "submodule", "update", "--init", "--recursive"],
         check=True,
+        **kwargs
     )
 
 
@@ -250,13 +254,19 @@ def main() -> None:
         "--registry", default="quay.io",
         help="Default registry to prepend to unqualified image names (default: quay.io). Pass '' to disable."
     )
+    parser.add_argument(
+        "--verbose", action="store_true",
+        help="Print progress messages to stderr (default: quiet)"
+    )
     args = parser.parse_args()
 
     with tempfile.TemporaryDirectory() as tmpdir:
         dest = Path(tmpdir) / "repo"
-        print(f"Cloning {args.repo} @ {args.ref} …", file=sys.stderr)
-        clone_repo(args.repo, args.ref, dest)
-        print("Scanning for container directives …", file=sys.stderr)
+        if args.verbose:
+            print(f"Cloning {args.repo} @ {args.ref} …", file=sys.stderr)
+        clone_repo(args.repo, args.ref, dest, verbose=args.verbose)
+        if args.verbose:
+            print("Scanning for container directives …", file=sys.stderr)
         results = find_all_containers(dest, exclude_http=not args.include_http)
 
     registry = args.registry.strip()
@@ -267,7 +277,8 @@ def main() -> None:
     if args.output and not args.full_json:
         unique = _unique_images(results)
         Path(args.output).write_text("\n".join(unique) + ("\n" if unique else ""))
-        print(f"Wrote {len(unique)} unique image(s) to {args.output}")
+        if args.verbose:
+            print(f"Wrote {len(unique)} unique image(s) to {args.output}", file=sys.stderr)
         return
 
     if not args.full_json:

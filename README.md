@@ -16,8 +16,11 @@ Docker and Singularity images.
 ## Usage
 
 ```bash
-# default: unique image names, one per line (skips http:// / https:// URLs)
+# default: unique image names, one per line (quiet mode)
 python3 nextflow_container_scan.py <repo-url>
+
+# show progress on stderr
+python3 nextflow_container_scan.py <repo-url> --verbose
 
 # include Singularity / SIF URLs that start with https://
 python3 nextflow_container_scan.py <repo-url> --include-http
